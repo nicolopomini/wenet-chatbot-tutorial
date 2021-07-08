@@ -23,6 +23,8 @@ def bot_webhook():
     message = payload["message"]
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
+    print(chat_id)
+    print(authenticated_users)
     if chat_id not in authenticated_users:
         answer = f"Hello, to use this app you have to login into wenet! Go to http://wenet.u-hopper.com/dev/hub/frontend/oauth/login?client_id={WENET_CLIENT_ID}&external_id={chat_id}"
         requests.post(f"https://api.telegram.org/bot{TELEGRAM_API_TOKEN}/sendMessage", json={
@@ -61,6 +63,7 @@ def login():
         "chat_id": external_id,
         "text": f"Welcome {username}!"
     })
+    print(authenticated_users)
     return redirect(f"http://wenet.u-hopper.com/dev/hub/frontend/oauth/complete?app_id={WENET_CLIENT_ID}")
 
 
