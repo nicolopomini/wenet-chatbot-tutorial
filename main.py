@@ -34,7 +34,7 @@ def send_task(text: str, telegram_id: int):
         cache=cache,
         token_endpoint_url="https://wenet.u-hopper.com/dev/api/oauth2/token"
     )
-    service_api = ServiceApiInterface(client, "https://wenet.u-hopper.com/dev/api/service")
+    service_api = ServiceApiInterface(client, "https://wenet.u-hopper.com/api/service")
     service_api.create_task(task)
 
 
