@@ -7,9 +7,10 @@ from wenet.model.task.task import Task, TaskGoal
 from wenet.storage.cache import InMemoryCache
 
 app = Flask(__name__)
-TELEGRAM_API_TOKEN = "1842211613:AAHlR-D03I-WmTvku5FRSJqXasHxr6NQYYM"
-WENET_CLIENT_ID = "A4glP1Fbc6"
-TASK_TYPE_ID = "60e6ba986fba661ff95b5b6a"
+TELEGRAM_API_TOKEN = "<MY TOKEN>"
+WENET_CLIENT_ID = "<CLIENT ID>"
+TASK_TYPE_ID = "<TASK TYPE ID>"
+CLIENT_SECRET = "<CLIENT SECRET>"
 
 cache = InMemoryCache()
 authenticated_users = {}
@@ -29,13 +30,19 @@ def send_task(text: str, telegram_id: int):
     )
     client = Oauth2Client(
         client_id=WENET_CLIENT_ID,
-        client_secret="lRlxyuhUAEFxIaVjccpZ",
+        client_secret=CLIENT_SECRET,
         resource_id=str(telegram_id),
-        cache=cache,
-        token_endpoint_url="https://wenet.u-hopper.com/dev/api/oauth2/token"
+        cache=cache
     )
-    service_api = ServiceApiInterface(client, "https://wenet.u-hopper.com/dev")
+    service_api = ServiceApiInterface(client, platform_url="https://internetofus.u-hopper.com/prod")
     service_api.create_task(task)
+
+
+def send_telegram_message(receiver_id: int, message: str):
+    requests.post(f"https://api.telegram.org/bot{TELEGRAM_API_TOKEN}/sendMessage", json={
+        "chat_id": receiver_id,
+        "text": message
+    })
 
 
 @app.route(f"/{TELEGRAM_API_TOKEN}", methods=["POST"])
@@ -50,11 +57,8 @@ def bot_webhook():
     chat_id = message["chat"]["id"]
     text = message.get("text", "")
     if chat_id not in authenticated_users:
-        answer = f"Hello, to use this app you have to login into wenet! Go to http://wenet.u-hopper.com/dev/hub/frontend/oauth/login?client_id={WENET_CLIENT_ID}&external_id={chat_id}"
-        requests.post(f"https://api.telegram.org/bot{TELEGRAM_API_TOKEN}/sendMessage", json={
-            "chat_id": chat_id,
-            "text": answer
-        })
+        answer = f"Hello, to use this app you have to login into wenet! Go to https://internetofus.u-hopper.com/prod/hub/frontend/oauth/login?client_id={WENET_CLIENT_ID}&external_id={chat_id}"
+        send_telegram_message(chat_id, answer)
         return {}, 200
     if text.startswith("/task"):
         task_text = text[5:]
@@ -64,16 +68,10 @@ def bot_webhook():
         except Exception as e:
             print(e)
             response_text = "Something went wrong in sending the task"
-        requests.post(f"https://api.telegram.org/bot{TELEGRAM_API_TOKEN}/sendMessage", json={
-            "chat_id": chat_id,
-            "text": response_text
-        })
+        send_telegram_message(chat_id, response_text)
         return {}, 200
     answer = "Hello!"
-    requests.post(f"https://api.telegram.org/bot{TELEGRAM_API_TOKEN}/sendMessage", json={
-        "chat_id": chat_id,
-        "text": answer
-    })
+    send_telegram_message(chat_id, answer)
     return {}, 200
 
 
@@ -85,27 +83,21 @@ def login():
     code = request.args.get('code')
     external_id = request.args.get("external_id")
     client = Oauth2Client.initialize_with_code(client_id=WENET_CLIENT_ID,
-                                               client_secret="lRlxyuhUAEFxIaVjccpZ",
+                                               client_secret=CLIENT_SECRET,
                                                code=code,
                                                resource_id=external_id,
                                                cache=cache,
-                                               token_endpoint_url="https://wenet.u-hopper.com/dev/api/oauth2/token",
                                                redirect_url="https://wenet-chatbot-tutorial.herokuapp.com/login"
                                                )
-    connector = WeNet.build(client, platform_url="https://wenet.u-hopper.com/dev")
+    connector = WeNet.build(client)
     token_details = connector.service_api.get_token_details()
     user_profile = connector.service_api.get_user_profile(token_details.profile_id)
     username = user_profile.name.first
     wenet_id = user_profile.profile_id
     wenet_id_to_telegram_id[wenet_id] = external_id
     authenticated_users[int(external_id)] = wenet_id
-    print("Saved ID binding")
-    print(wenet_id_to_telegram_id)
-    requests.post(f"https://api.telegram.org/bot{TELEGRAM_API_TOKEN}/sendMessage", json={
-        "chat_id": external_id,
-        "text": f"Welcome {username}!"
-    })
-    return redirect(f"http://wenet.u-hopper.com/dev/hub/frontend/oauth/complete?app_id={WENET_CLIENT_ID}")
+    send_telegram_message(external_id, f"Welcome {username}!")
+    return redirect(f"https://internetofus.u-hopper.com/prod/hub/frontend/oauth/complete?app_id={WENET_CLIENT_ID}")
 
 
 @app.route("/wenet_callback", methods=["POST"])
